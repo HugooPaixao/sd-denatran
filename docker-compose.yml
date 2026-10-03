@@ -1,0 +1,46 @@
+x-servico: &servico
+  build: .
+  image: sd-denatran
+  environment:
+    MQTT_BROKER: tcp://mqtt:1883
+  depends_on:
+    mqtt:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports: ["1883:1883"]
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqtt-data:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -i healthcheck -W 3"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  cadastro:
+    <<: *servico
+    command: ["cadastro"]
+
+  emplacamento:
+    <<: *servico
+    command: ["emplacamento"]
+
+  multa:
+    <<: *servico
+    command: ["multa"]
+
+  console:
+    <<: *servico
+    command: ["console"]
+    profiles: ["console"]
+    restart: "no"
+    stdin_open: true
+    tty: true
+    depends_on: [cadastro, emplacamento, multa]
+
+volumes:
+  mqtt-data:
